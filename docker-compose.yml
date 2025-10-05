@@ -1,0 +1,63 @@
+services:
+  # MongoDB service with authentication
+  mongo:
+    image: mongo:latest
+    container_name: quizmaker-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - quizmaker-network
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+
+  # Backend service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: quizmaker-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://admin:password@mongo:27017/quizmaker?authSource=admin
+      - CEREBRAS_API_KEY=csk-tjyh2mc9w4ycpk38d2w2t6mdp3neh2fedm8xvptn5ryf3ykn
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - quizmaker-network
+    depends_on:
+      - mongo
+
+  # Frontend service
+  frontend:
+    build:
+      context: ./frontend/quizmaker-frontend
+      dockerfile: Dockerfile
+    container_name: quizmaker-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_BACKEND_URL=http://backend:5000
+    volumes:
+      - ./frontend/quizmaker-frontend/src:/app/src
+      - ./frontend/quizmaker-frontend/public:/app/public
+      - ./frontend/quizmaker-frontend/package.json:/app/package.json
+      - ./frontend/quizmaker-frontend/package-lock.json:/app/package-lock.json
+      - /app/node_modules
+    networks:
+      - quizmaker-network
+    depends_on:
+      - backend
+
+volumes:
+  mongodb_data:
+
+networks:
+  quizmaker-network:
+    driver: bridge
